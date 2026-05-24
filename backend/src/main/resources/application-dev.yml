@@ -1,0 +1,42 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/agentscope_demo
+    username: agentscope
+    password: agentscope
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  timeout: 2592000
+  is-concurrent: true
+  is-share: false
+  jwt-secret-key: ${SA_TOKEN_JWT_SECRET:agentscope-demo-local-secret-change-me}
+
+app:
+  storage:
+    provider: local
+    local-root: ./data/uploads
+    minio:
+      endpoint: http://localhost:9000
+      bucket: agentscope-demo
+      access-key: minioadmin
+      secret-key: minioadmin
+  llm:
+    provider: deepseek
+    api-key: ${DEEPSEEK_APIKEY:}
+    base-url: https://api.deepseek.com
+    model: deepseek-chat

@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: agentscope-demo
+  profiles:
+    default: dev
+
+server:
+  port: 8080

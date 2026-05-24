@@ -1,0 +1,13 @@
+.DS_Store
+.agents/
+.superpowers/
+node_modules/
+dist/
+target/
+.idea/
+.env
+data/
+*.log
+*.tsbuildinfo
+frontend/vite.config.d.ts
+frontend/vite.config.js
