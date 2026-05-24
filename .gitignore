@@ -1,5 +1,4 @@
 .DS_Store
-.agents/
 .superpowers/
 node_modules/
 dist/
