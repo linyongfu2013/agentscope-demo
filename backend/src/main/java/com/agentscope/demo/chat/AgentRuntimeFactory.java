@@ -1,6 +1,8 @@
 package com.agentscope.demo.chat;
 
+import com.agentscope.demo.secret.SecretResolver;
 import com.agentscope.demo.tenant.TenantContext;
+import com.agentscope.demo.toolconfig.ToolRuntimeRegistrar;
 import io.agentscope.core.ReActAgent;
 import io.agentscope.core.model.GenerateOptions;
 import io.agentscope.core.model.OpenAIChatModel;
@@ -14,15 +16,23 @@ import org.springframework.stereotype.Component;
 @Component
 public class AgentRuntimeFactory {
 
+    private final SecretResolver secretResolver;
+    private final ToolRuntimeRegistrar toolRuntimeRegistrar;
+
+    public AgentRuntimeFactory(SecretResolver secretResolver, ToolRuntimeRegistrar toolRuntimeRegistrar) {
+        this.secretResolver = secretResolver;
+        this.toolRuntimeRegistrar = toolRuntimeRegistrar;
+    }
+
     public AgentRuntime create(AgentConfig config) {
-        String apiKey = System.getenv("DEEPSEEK_APIKEY");
-        if (apiKey == null || apiKey.isBlank()) {
+        String apiKey = secretResolver.resolve(config.apiKeyRef()).orElse("");
+        if ("mock".equalsIgnoreCase(config.provider()) || apiKey.isBlank()) {
             return new MockAgentRuntime();
         }
 
         OpenAIChatModel model = OpenAIChatModel.builder()
                 .apiKey(apiKey)
-                .baseUrl("https://api.deepseek.com")
+                .baseUrl(config.baseUrl())
                 .modelName(config.modelName())
                 .generateOptions(GenerateOptions.builder()
                         .temperature(config.temperature())
@@ -34,6 +44,7 @@ public class AgentRuntimeFactory {
         if (config.tools().contains("calculator")) {
             toolkit.registerTool(new CalculatorTools());
         }
+        toolRuntimeRegistrar.registerConfiguredTools(toolkit, config.toolConfigs());
 
         PlanNotebook planNotebook = PlanNotebook.builder()
                 .maxSubtasks(15)
@@ -42,7 +53,7 @@ public class AgentRuntimeFactory {
 
         ReActAgent agent = ReActAgent.builder()
                 .name(config.name())
-                .sysPrompt(config.systemPrompt())
+                .sysPrompt(AgentExecutionPrompt.apply(config.systemPrompt()))
                 .model(model)
                 .toolkit(toolkit)
                 .planNotebook(planNotebook)

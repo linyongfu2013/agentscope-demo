@@ -40,6 +40,7 @@ describe("mergeStreamEvent", () => {
   });
 
   it("labels model and voice events", () => {
+    expect(labelOf("execution_strategy")).toBe("执行策略");
     expect(labelOf("model_resolved")).toBe("模型选择");
     expect(labelOf("warning")).toBe("提示");
     expect(labelOf("voice_transcription")).toBe("语音转写");

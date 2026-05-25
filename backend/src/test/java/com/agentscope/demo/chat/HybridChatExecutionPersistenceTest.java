@@ -7,12 +7,16 @@ import static org.mockito.Mockito.when;
 
 import com.agentscope.demo.model.ModelConfigEntity;
 import com.agentscope.demo.model.ModelType;
+import com.agentscope.demo.secret.MapSecretResolver;
 import com.agentscope.demo.tenant.TenantContext;
+import com.agentscope.demo.toolconfig.ToolRuntimeRegistrar;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -23,8 +27,7 @@ class HybridChatExecutionPersistenceTest {
         RecordingTaskRunRepository taskRuns = new RecordingTaskRunRepository();
         RecordingTaskEventRepository taskEvents = new RecordingTaskEventRepository();
         HybridChatExecutionService service = new HybridChatExecutionService(
-                new IntentClassifier(),
-                null,
+                new FixedAgentRuntimeFactory(AgentScopeStreamEvent.finalAnswer("provider answer")),
                 new ChatStreamEventMapper(),
                 runtimeResolver(),
                 taskRuns,
@@ -36,12 +39,35 @@ class HybridChatExecutionPersistenceTest {
         );
 
         assertThat(taskRuns.createdTenantId).isEqualTo("tenant-a");
-        assertThat(taskRuns.createdIntent).isEqualTo(Intent.SIMPLE);
+        assertThat(taskRuns.createdIntent).isEqualTo(Intent.SELF_DIRECTED);
         assertThat(taskRuns.completed).isTrue();
         assertThat(taskEvents.events).hasSize(3);
         assertThat(taskEvents.events).allSatisfy(event -> assertThat(event.tenantId).isEqualTo("tenant-a"));
+        assertThat(taskEvents.events.getFirst().event.type()).isEqualTo("execution_strategy");
+        assertThat(taskEvents.events.getFirst().event.payload().get("strategy")).isEqualTo("model_self_directed");
         assertThat(taskEvents.events.get(1).event.type()).isEqualTo("model_resolved");
         assertThat(taskEvents.events.getLast().event.type()).isEqualTo("final_answer");
+    }
+
+    @Test
+    void simpleIntentUsesConfiguredRuntimeInsteadOfLocalEcho() {
+        RecordingTaskRunRepository taskRuns = new RecordingTaskRunRepository();
+        RecordingTaskEventRepository taskEvents = new RecordingTaskEventRepository();
+        HybridChatExecutionService service = new HybridChatExecutionService(
+                new FixedAgentRuntimeFactory(AgentScopeStreamEvent.finalAnswer("provider answer")),
+                new ChatStreamEventMapper(),
+                runtimeResolver(),
+                taskRuns,
+                taskEvents
+        );
+
+        AtomicReference<List<ChatStreamEvent>> eventsRef = new AtomicReference<>();
+        TenantContext.runWithTenant("tenant-a", () ->
+                eventsRef.set(service.execute(new ChatRequest(null, null, null, "hello")).collectList().block())
+        );
+        List<ChatStreamEvent> events = eventsRef.get();
+
+        assertThat(events.getLast().payload().get("content")).isEqualTo("provider answer");
     }
 
     @Test
@@ -51,7 +77,6 @@ class HybridChatExecutionPersistenceTest {
         ChatRuntimeResolver resolver = Mockito.mock(ChatRuntimeResolver.class);
         when(resolver.resolve(any())).thenThrow(new IllegalArgumentException("Selected model not found"));
         HybridChatExecutionService service = new HybridChatExecutionService(
-                new IntentClassifier(),
                 null,
                 new ChatStreamEventMapper(),
                 resolver,
@@ -129,5 +154,19 @@ class HybridChatExecutionPersistenceTest {
     }
 
     private record Record(String tenantId, ChatStreamEvent event) {
+    }
+
+    private static final class FixedAgentRuntimeFactory extends AgentRuntimeFactory {
+        private final AgentScopeStreamEvent event;
+
+        private FixedAgentRuntimeFactory(AgentScopeStreamEvent event) {
+            super(new MapSecretResolver(Map.of()), ToolRuntimeRegistrar.noop());
+            this.event = event;
+        }
+
+        @Override
+        public AgentRuntime create(AgentConfig config) {
+            return request -> reactor.core.publisher.Flux.just(event);
+        }
     }
 }
