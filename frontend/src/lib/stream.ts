@@ -21,7 +21,7 @@ export type StreamBlock = {
 };
 
 const LABELS: Record<string, string> = {
-  intent: "意图路由",
+  execution_strategy: "执行策略",
   rag_hint: "知识检索",
   reasoning: "执行过程",
   tool_result: "工具调用",

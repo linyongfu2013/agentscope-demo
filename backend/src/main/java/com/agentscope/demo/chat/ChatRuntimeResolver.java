@@ -99,11 +99,15 @@ public class ChatRuntimeResolver {
                 agentEntity == null ? defaults.id() : agentEntity.getId(),
                 name == null || name.isBlank() ? defaults.name() : name,
                 systemPrompt == null || systemPrompt.isBlank() ? defaults.systemPrompt() : systemPrompt,
+                model.getProvider(),
                 model.getModelName(),
+                model.getBaseUrl() == null || model.getBaseUrl().isBlank() ? defaults.baseUrl() : model.getBaseUrl(),
+                model.getApiKeyRef() == null || model.getApiKeyRef().isBlank() ? defaults.apiKeyRef() : model.getApiKeyRef(),
                 temperature,
                 maxTokens,
                 toolNames,
-                knowledgeBaseIds
+                knowledgeBaseIds,
+                tools
         );
     }
 

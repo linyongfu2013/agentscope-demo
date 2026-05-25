@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,10 +18,28 @@ public class ToolConfigService {
 
     private final ToolConfigRepository repository;
     private final TenantRepository tenantRepository;
+    private final ToolRuntimeClient runtimeClient;
 
-    public ToolConfigService(ToolConfigRepository repository, TenantRepository tenantRepository) {
+    @Autowired
+    public ToolConfigService(ToolConfigRepository repository, TenantRepository tenantRepository, ToolRuntimeClient runtimeClient) {
         this.repository = repository;
         this.tenantRepository = tenantRepository;
+        this.runtimeClient = runtimeClient;
+    }
+
+    ToolConfigService(ToolConfigRepository repository, TenantRepository tenantRepository) {
+        this(repository, tenantRepository, new ToolRuntimeClient() {
+            @Override
+            public ToolInvocationResult test(ToolConfigEntity entity) {
+                return new ToolInvocationResult(true,
+                        "mock observation for " + entity.getToolType() + " tool " + entity.getName());
+            }
+
+            @Override
+            public ToolInvocationResult invoke(ToolConfigEntity entity, java.util.Map<String, Object> input) {
+                return test(entity);
+            }
+        });
     }
 
     @Transactional
@@ -86,10 +105,8 @@ public class ToolConfigService {
         String tenantId = TenantContext.currentTenantId();
         ToolConfigEntity entity = repository.findByTenantIdAndId(tenantId, id)
                 .orElseThrow(() -> new IllegalArgumentException("tool config not found"));
-        return new ToolTestResponse(
-                true,
-                "mock observation for " + entity.getToolType() + " tool " + entity.getName()
-        );
+        ToolInvocationResult result = runtimeClient.test(entity);
+        return new ToolTestResponse(result.success(), result.observation());
     }
 
     private ToolConfigResponse toResponse(ToolConfigEntity entity) {
