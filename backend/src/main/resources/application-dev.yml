@@ -39,4 +39,4 @@ app:
     provider: deepseek
     api-key: ${DEEPSEEK_APIKEY:}
     base-url: https://api.deepseek.com
-    model: deepseek-chat
+    model: deepseek-v4-flash
